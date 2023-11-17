@@ -1,6 +1,7 @@
+#![no_std]
 use core::ops::{Index, IndexMut};
 
-pub trait Num: Copy{
+pub trait Num: Copy + Send{
     fn default_value() -> Self;
 }
 
@@ -21,6 +22,8 @@ pub struct ReadHead<T: Num> {
     size : usize,
     head_position : usize,
 }
+
+unsafe impl<T: Num> Send for ReadHead<T> {}
 
 impl<T: Num> ReadHead<T> {
     pub fn seek(&mut self, position: usize){
@@ -51,14 +54,13 @@ impl<T: Num> Index<usize> for ReadHead<T> {
     }
 }
 
-//unsafe impl<T: Num + core::marker::Copy + std::clone::Clone> Send for ReadHead<T> {}
 
 pub struct WriteHead<T: Num, const N: usize> {
     buffer : [T; N],
     head_position : usize,
 }
 
-//unsafe impl<T: Num + core::marker::Copy + std::clone::Clone> Send for WriteHead<T> {}
+unsafe impl<T: Num, const N: usize> Send for WriteHead<T, N> {}
 
 impl<T: Num, const N: usize> WriteHead<T, N> {
     pub fn new() -> WriteHead<T, N> {
