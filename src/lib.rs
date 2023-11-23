@@ -116,6 +116,79 @@ impl<T: Num, const N: usize> IndexMut<usize> for WriteHead<T, N> {
     }
 }
 
+pub struct WriteHeadOwned<T: Num> {
+    buffer : *mut [T],
+    capacity : usize,
+    head_position : usize,
+}
+
+unsafe impl<T: Num> Send for WriteHeadOwned<T> {}
+
+impl<T: Num> WriteHeadOwned<T> {
+    pub fn new(buffer: &mut[T]) -> WriteHeadOwned<T> {
+        let capacity = buffer.len();
+        WriteHeadOwned {buffer, capacity, head_position: 0}
+    }
+
+    pub fn push(&mut self, element: T) {
+        unsafe {
+            (*self.buffer)[self.head_position] = element;
+        }
+        self.increment();
+    }
+    
+    pub fn increment(&mut self) {
+        self.head_position = (self.head_position + 1) % self.capacity;
+    }
+
+    pub fn seek(&mut self, position: usize){
+        self.head_position = if position > self.capacity { 0 } else { position };
+    }
+
+    pub fn clear(&mut self) where T: Default {
+        unsafe {
+            for i in 0..self.capacity {
+                (*self.buffer)[i] = T::default_value();
+            }
+        }
+    }
+    
+    pub fn as_readhead(&self, delay_samples: usize) -> ReadHead<T> {
+        ReadHead {buffer: self.buffer, size: self.capacity, head_position: (self.capacity - delay_samples) % self.capacity}
+    }
+}
+
+
+impl<T: Num> Iterator for WriteHeadOwned<T> {
+    type Item = T;
+    fn next(&mut self) -> Option<Self::Item> {
+        unsafe {
+            let sample = (*self.buffer)[self.head_position];
+            self.increment();
+            Some(sample)
+        }
+    }
+}
+
+impl<T: Num> Index<usize> for WriteHeadOwned<T> {
+    type Output = T;
+    fn index(&self, i: usize) -> &T {
+        let current_position = i % self.capacity;
+        unsafe {
+            &(*self.buffer)[current_position]
+        }
+    }
+}
+
+impl<T: Num> IndexMut<usize> for WriteHeadOwned<T> {
+    fn index_mut(&mut self, i: usize) -> &mut T {
+        let current_position = i % self.capacity;
+        unsafe {
+            &mut (*self.buffer)[current_position]
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -272,6 +345,73 @@ mod tests {
 
         assert_eq!(read_head.next().unwrap(), 9.0);
         assert_eq!(read_head.next().unwrap(), 8.0);
+
+    }
+
+    #[test]
+    pub fn write_head_owned_is_circular() {
+        let mut array: [f32; 2] = [0.0; 2];
+        let mut write_head = WriteHeadOwned::<f32>::new(&mut array);
+        
+        write_head.push(0.0);
+        write_head.push(0.0);
+        write_head.push(1.0); // wraps around
+
+        let mut read_head = write_head.as_readhead(0);
+        
+        assert_eq!(read_head.next().unwrap(), 1.0);
+        assert_eq!(read_head.next().unwrap(), 0.0);
+    }
+    
+    #[test]
+    pub fn write_head_owned_index_operator() {
+        let mut array: [f32; 5] = [0.0; 5];
+        let mut write_head = WriteHeadOwned::<f32>::new(&mut array);
+        
+        for n in 0..4 {
+            write_head[n] = n as f32;
+        }
+
+        let mut read_head = write_head.as_readhead(0);
+        for n in 0..4 {
+            assert_eq!(read_head.next().unwrap(), n as f32);
+        }
+    }
+
+    #[test]
+    pub fn write_head_owned_index_operator_is_circular() {
+        let mut array: [f32; 2] = [0.0; 2];
+        let mut write_head = WriteHeadOwned::<f32>::new(&mut array);
+        
+        write_head[0] = 0.0;
+        write_head[1] = 1.0;
+        write_head[2] = 2.0;
+        write_head[3] = 3.0;
+
+        let mut read_head = write_head.as_readhead(0);
+        assert_eq!(read_head.next().unwrap(), 2.0);
+        assert_eq!(read_head.next().unwrap(), 3.0);
+    }
+
+   
+    #[test]
+    pub fn moved_write_head_owned_is_valid() {
+        let mut array: [f32; 2] = [0.0; 2];
+        let mut write_head = WriteHeadOwned::<f32>::new(&mut array);
+
+        write_head[0] = 9.0;
+        write_head[1] = 8.0;
+
+        let mut read_head = write_head.as_readhead(0);
+
+        let mut c = move || {
+            write_head[0] = 0.0;
+            write_head[1] = 1.0;
+        };
+        c();
+
+        assert_eq!(read_head.next().unwrap(), 0.0);
+        assert_eq!(read_head.next().unwrap(), 1.0);
 
     }
 }
