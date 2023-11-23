@@ -254,4 +254,24 @@ mod tests {
         assert_eq!(read_head.next().unwrap(), 2.0);
         assert_eq!(read_head.next().unwrap(), 3.0);
     }
+
+    #[test]
+    pub fn moved_write_head_no_longer_valid() {
+        let mut write_head = WriteHead::<f32, 2>::new();
+
+        write_head[0] = 9.0;
+        write_head[1] = 8.0;
+
+        let mut read_head = write_head.as_readhead(0);
+
+        let mut c = move || {
+            write_head[0] = 0.0;
+            write_head[1] = 1.0;
+        };
+        c();
+
+        assert_eq!(read_head.next().unwrap(), 9.0);
+        assert_eq!(read_head.next().unwrap(), 8.0);
+
+    }
 }
