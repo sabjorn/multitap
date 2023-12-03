@@ -46,6 +46,12 @@ where T: Default {
         }
     }
 
+    pub fn from_slice(data: &mut [T]) -> Self {
+            Multitap { 
+                data: UnsafeCell::new(data.try_into().expect("Wrong size"))
+            }
+    }
+
     pub fn as_mut(&self) -> &mut [T; N] {
         unsafe { &mut *self.data.get() }
     }
@@ -350,6 +356,24 @@ mod tests {
     pub fn external_buffer_into() {
         let array: [f32; 3] = [0.; 3];
         let multitap: Multitap<f32, 3> = array.into();
+
+        let mut writehead = multitap.as_writehead();
+
+        writehead[0] = 1.0;
+        writehead[1] = 2.0;
+        writehead[2] = 3.0;
+
+        let mut readhead = multitap.as_readhead(0);
+
+        assert_eq!(readhead.next().unwrap(), 1.0);
+        assert_eq!(readhead.next().unwrap(), 2.0);
+        assert_eq!(readhead.next().unwrap(), 3.0);
+    }
+    
+    #[test]
+    pub fn from_slice() {
+        let mut array: [f32; 3] = [0.; 3];
+        let multitap: Multitap<f32, 3> = Multitap::from_slice(array.as_mut_slice());
 
         let mut writehead = multitap.as_writehead();
 
