@@ -128,11 +128,11 @@ where T: Default {
                 *elem = T::default_value(); 
             }
     }
-//
-//    pub fn seek(&mut self, position: usize){
-//        self.head_position = if position > self.buffer.len() { 0 } else { position };
-//    }
-//
+
+    pub fn seek(&mut self, position: usize){
+        self.head_position = position % N;
+    }
+
 }
 
 impl<'a, T: Num, const N: usize> Index<usize> for WriteHead<'a, T, N> 
@@ -259,7 +259,55 @@ mod tests {
     }
 
     #[test]
-    pub fn readhead_seak_is_cyclical() {
+    pub fn writehead_seek() {
+        let multitap = Multitap::<f32, 2>::new();
+        let mut writehead = multitap.as_writehead();
+
+        writehead.push(1.0);
+        writehead.push(3.0);
+
+        writehead.seek(0);
+
+        writehead.push(2.0);
+
+        let mut readhead = multitap.as_readhead(0);
+        assert_eq!(readhead.next().unwrap(), 2.0);
+    }
+
+    #[test]
+    pub fn writehead_seek_is_cyclical() {
+        let multitap = Multitap::<f32, 2>::new();
+        let mut writehead = multitap.as_writehead();
+
+        writehead.push(1.0);
+        writehead.push(3.0);
+
+        writehead.seek(2);
+
+        writehead.push(2.0);
+
+        let mut readhead = multitap.as_readhead(0);
+        assert_eq!(readhead.next().unwrap(), 2.0);
+    }
+    #[test]
+    pub fn readhead_seek() {
+        let multitap = Multitap::<f32, 3>::new();
+        let mut writehead = multitap.as_writehead();
+
+        writehead.push(0.0);
+        writehead.push(1.0);
+        writehead.push(2.0);
+
+        let mut readhead = multitap.as_readhead(0);
+        readhead.seek(2);
+        assert_eq!(readhead.next().unwrap(), 2.0);
+        
+        readhead.seek(2);
+        assert_eq!(readhead.next().unwrap(), 2.0);
+    }
+
+    #[test]
+    pub fn readhead_seek_is_cyclical() {
         let multitap = Multitap::<f32, 3>::new();
         let mut writehead = multitap.as_writehead();
 
