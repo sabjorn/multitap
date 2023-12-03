@@ -1,4 +1,4 @@
-//#![no_std]
+#![no_std]
 use core::cell::UnsafeCell;
 use core::ops::{Index, IndexMut};
 
@@ -37,6 +37,12 @@ where T: Default {
     pub fn new() -> Self {
         Multitap {
             data: UnsafeCell::new([T::default_value(); N]),
+        }
+    }
+
+    pub fn from_buffer(data: [T; N]) -> Self {
+        Multitap {
+            data: UnsafeCell::new(data),
         }
     }
 
@@ -308,5 +314,23 @@ mod tests {
         assert_eq!(readhead.next().unwrap(), 0.0);
         assert_eq!(readhead.next().unwrap(), 1.0);
 
+    }
+
+    #[test]
+    pub fn external_buffer() {
+        let array: [f32; 3] = [0.; 3];
+        let multitap = Multitap::from_buffer(array);
+
+        let mut writehead = multitap.as_writehead();
+
+        writehead[0] = 1.0;
+        writehead[1] = 2.0;
+        writehead[2] = 3.0;
+
+        let mut readhead = multitap.as_readhead(0);
+
+        assert_eq!(readhead.next().unwrap(), 1.0);
+        assert_eq!(readhead.next().unwrap(), 2.0);
+        assert_eq!(readhead.next().unwrap(), 3.0);
     }
 }
