@@ -20,7 +20,6 @@ impl Num for i32 {
 
 pub struct Multitap<T: Num, const N: usize> {
     data: UnsafeCell<[T; N]>,
-    writehead_exists: bool,
 }
 
 pub struct ReadHead<'a, T: Num, const N: usize> {
@@ -38,7 +37,6 @@ where T: Default {
     pub fn new() -> Self {
         Multitap {
             data: UnsafeCell::new([T::default_value(); N]),
-            writehead_exists: false,
         }
     }
 
@@ -46,16 +44,11 @@ where T: Default {
         unsafe { &mut *self.data.get() }
     }
     
-    pub fn as_writehead(&mut self) -> Option<WriteHead<T, N>> {
-        if self.writehead_exists {
-            return None;
-        }
-
-        self.writehead_exists = true;
-        Some(WriteHead {
+    pub fn as_writehead(& self) -> WriteHead<T, N> {
+        WriteHead {
             buffer: self,
             head_position: 0 
-        })
+        }
     }
 
     pub fn as_readhead(&self, head_position: usize) -> ReadHead<T, N> {
@@ -152,8 +145,8 @@ mod tests {
 
     #[test]
     pub fn readhead_with_delay_output_equals_write_head() {
-        let mut multitap = Multitap::<f32, 3>::new();
-        let mut writehead = multitap.as_writehead().unwrap();
+        let multitap = Multitap::<f32, 3>::new();
+        let mut writehead = multitap.as_writehead();
 
         writehead.push(1.0);
         writehead.push(2.0);
@@ -183,8 +176,8 @@ mod tests {
 
     #[test]
     pub fn multiple_readhead_with_delay_output_equals_write_head() {
-        let mut multitap = Multitap::<f32, 5>::new();
-        let mut writehead = multitap.as_writehead().unwrap();
+        let multitap = Multitap::<f32, 5>::new();
+        let mut writehead = multitap.as_writehead();
 
         writehead.push(1.0);
         for n in 0..4 {
@@ -205,8 +198,8 @@ mod tests {
     
     #[test]
     pub fn readhead_is_circular() {
-        let mut multitap = Multitap::<f32, 3>::new();
-        let mut writehead = multitap.as_writehead().unwrap();
+        let multitap = Multitap::<f32, 3>::new();
+        let mut writehead = multitap.as_writehead();
         
         writehead.push(1.0);
 
@@ -220,8 +213,8 @@ mod tests {
 
     #[test]
     pub fn readhead_index_operator() {
-        let mut multitap = Multitap::<f32, 3>::new();
-        let mut writehead = multitap.as_writehead().unwrap();
+        let multitap = Multitap::<f32, 3>::new();
+        let mut writehead = multitap.as_writehead();
 
         writehead.push(0.);
         writehead.push(1.);
@@ -235,8 +228,8 @@ mod tests {
 
     #[test]
     pub fn readhead_index_operator_is_circular() {
-        let mut multitap = Multitap::<f32, 3>::new();
-        let mut writehead = multitap.as_writehead().unwrap();
+        let multitap = Multitap::<f32, 3>::new();
+        let mut writehead = multitap.as_writehead();
 
         writehead.push(0.0);
         writehead.push(1.0);
@@ -254,8 +247,8 @@ mod tests {
     
     #[test]
     pub fn writehead_is_circular() {
-        let mut multitap = Multitap::<f32, 2>::new();
-        let mut writehead = multitap.as_writehead().unwrap();
+        let multitap = Multitap::<f32, 2>::new();
+        let mut writehead = multitap.as_writehead();
         
         writehead.push(1.0);
         writehead.push(2.0);
@@ -269,8 +262,8 @@ mod tests {
     
     #[test]
     pub fn writehead_index_operator() {
-        let mut multitap = Multitap::<f32, 5>::new();
-        let mut writehead = multitap.as_writehead().unwrap();
+        let multitap = Multitap::<f32, 5>::new();
+        let mut writehead = multitap.as_writehead();
         
         for n in 0..4 {
             writehead[n] = n as f32;
@@ -284,8 +277,8 @@ mod tests {
 
     #[test]
     pub fn writehead_index_operator_is_circular() {
-        let mut multitap = Multitap::<f32, 2>::new();
-        let mut writehead = multitap.as_writehead().unwrap();
+        let multitap = Multitap::<f32, 2>::new();
+        let mut writehead = multitap.as_writehead();
         
         writehead[0] = 0.0;
         writehead[1] = 1.0;
@@ -297,30 +290,10 @@ mod tests {
         assert_eq!(readhead.next().unwrap(), 3.0);
     }
 
-    //#[test]
-    //pub fn moved_writehead_is_valid() {
-    //    let mut multitap = Multitap::<f32, 2>::new();
-    //    let mut writehead = multitap.as_writehead().unwrap();
-
-    //    writehead[0] = 9.0;
-    //    writehead[1] = 8.0;
-
-    //    let mut c = move || {
-    //        writehead[0] = 0.0;
-    //        writehead[1] = 1.0;
-    //    };
-    //    c();
-
-    //    let mut readhead = multitap.as_readhead(0);
-    //    assert_eq!(readhead.next().unwrap(), 0.0);
-    //    assert_eq!(readhead.next().unwrap(), 1.0);
-
-    //}
-
     #[test]
     pub fn moved_writehead_is_valid() {
-        let mut multitap = Multitap::<f32, 2>::new();
-        let mut writehead = multitap.as_writehead().unwrap();
+        let multitap = Multitap::<f32, 2>::new();
+        let mut writehead = multitap.as_writehead();
 
         writehead[0] = 9.0;
         writehead[1] = 8.0;
