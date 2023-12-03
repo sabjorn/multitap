@@ -65,6 +65,16 @@ where T: Default {
     }
 }
 
+impl<T: Num, const N: usize> From<[T; N]> for Multitap<T, N>
+where T: Default
+{
+    fn from(data: [T; N]) -> Self {
+        Multitap {
+            data: UnsafeCell::new(data),
+        }
+    }
+}
+
 unsafe impl<'a, T: Num, const N: usize> Send for ReadHead<'a, T, N> {}
 
 //impl<'a, T: Num, const N: usize> ReadHead<'a, T, N> {
@@ -317,9 +327,27 @@ mod tests {
     }
 
     #[test]
-    pub fn external_buffer() {
+    pub fn from_external_buffer() {
         let array: [f32; 3] = [0.; 3];
-        let multitap = Multitap::from_buffer(array);
+        let multitap = Multitap::from(array);
+
+        let mut writehead = multitap.as_writehead();
+
+        writehead[0] = 1.0;
+        writehead[1] = 2.0;
+        writehead[2] = 3.0;
+
+        let mut readhead = multitap.as_readhead(0);
+
+        assert_eq!(readhead.next().unwrap(), 1.0);
+        assert_eq!(readhead.next().unwrap(), 2.0);
+        assert_eq!(readhead.next().unwrap(), 3.0);
+    }
+
+    #[test]
+    pub fn external_buffer_into() {
+        let array: [f32; 3] = [0.; 3];
+        let multitap: Multitap<f32, 3> = array.into();
 
         let mut writehead = multitap.as_writehead();
 
