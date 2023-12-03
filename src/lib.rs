@@ -68,7 +68,7 @@ where T: Default {
             buffer: self,
             head_position: (N - head_position) % N,
         }
-    }
+    } 
 }
 
 impl<T: Num, const N: usize> From<[T; N]> for Multitap<T, N>
@@ -122,14 +122,17 @@ where T: Default {
     pub fn increment(&mut self) {
         self.head_position = (self.head_position + 1) % N;
     }
+
+    pub fn clear(&mut self) where T: Default {
+            for elem in (*self.buffer.as_mut()).iter_mut() { 
+                *elem = T::default_value(); 
+            }
+    }
 //
 //    pub fn seek(&mut self, position: usize){
 //        self.head_position = if position > self.buffer.len() { 0 } else { position };
 //    }
 //
-//    pub fn clear(&mut self) where T: Default {
-//        self.buffer.fill(T::default_value());
-//    }
 }
 
 impl<'a, T: Num, const N: usize> Index<usize> for WriteHead<'a, T, N> 
@@ -331,7 +334,6 @@ mod tests {
 
         assert_eq!(readhead.next().unwrap(), 0.0);
         assert_eq!(readhead.next().unwrap(), 1.0);
-
     }
 
     #[test]
@@ -387,4 +389,19 @@ mod tests {
         assert_eq!(readhead.next().unwrap(), 2.0);
         assert_eq!(readhead.next().unwrap(), 3.0);
     }
+
+    #[test]
+    pub fn clear() {
+        let multitap = Multitap::<f32, 2>::new();
+        let mut writehead = multitap.as_writehead();
+
+        writehead[0] = 9.0;
+        writehead[1] = 8.0;
+        writehead.clear();
+
+        let mut readhead = multitap.as_readhead(0);
+        assert_eq!(readhead.next().unwrap(), 0.0);
+        assert_eq!(readhead.next().unwrap(), 0.0);
+    }
+
 }
