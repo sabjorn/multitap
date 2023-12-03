@@ -77,12 +77,12 @@ where T: Default
 
 unsafe impl<'a, T: Num, const N: usize> Send for ReadHead<'a, T, N> {}
 
-//impl<'a, T: Num, const N: usize> ReadHead<'a, T, N> {
-//    pub fn seek(&mut self, position: usize){
-//        self.head_position = position % self.size;
-//    }
-//}
-//
+impl<'a, T: Num, const N: usize> ReadHead<'a, T, N> {
+    pub fn seek(&mut self, position: usize){
+        self.head_position = position % N;
+    }
+}
+
 impl<'a, T: Num, const N: usize> Iterator for ReadHead<'a, T, N> 
 where T: Default {
     type Item = T;
@@ -146,18 +146,6 @@ where T: Default {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    //#[test]
-    //pub fn read_head_is_generic() {
-    //    {
-    //        let mut write_head = WriteHead::<i32, 1>::new();
-    //        write_head.push(0);
-    //    }
-    //    {
-    //        let mut write_head = WriteHead::<f32, 1>::new();
-    //        write_head.push(0_f32);
-    //    }
-    //}
 
     #[test]
     pub fn readhead_with_delay_output_equals_write_head() {
@@ -260,7 +248,21 @@ mod tests {
         assert_eq!(readhead[5], 1.0);
         assert_eq!(readhead[6], 2.0);
     }
-    
+
+    #[test]
+    pub fn readhead_seak_is_cyclical() {
+        let multitap = Multitap::<f32, 3>::new();
+        let mut writehead = multitap.as_writehead();
+
+        writehead.push(0.0);
+        writehead.push(1.0);
+        writehead.push(2.0);
+
+        let mut readhead = multitap.as_readhead(0);
+        readhead.seek(3);
+        assert_eq!(readhead.next().unwrap(), 0.0);
+    }
+
     #[test]
     pub fn writehead_is_circular() {
         let multitap = Multitap::<f32, 2>::new();
