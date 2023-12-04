@@ -207,18 +207,33 @@ mod tests {
 
     #[test]
     pub fn read_head_with_delay_output_equals_write_head() {
-        let mut write_head = WriteHead::<i32, 5>::new();
+        let mut write_head = WriteHead::<i32, 3>::new();
 
         write_head.push(1);
-       
-        for n in 0..4 {
-            let mut read_head = write_head.as_readhead(n);
-            for j in 0..4 {
-                let val = read_head.next().unwrap();
-                if j == n {
-                    assert_eq!(val, 1)
-                }
-            }
+        write_head.push(2);
+        write_head.push(3);
+
+        {
+            let mut read_head = write_head.as_readhead(0);
+
+            assert_eq!(read_head.next().unwrap(), 1);
+            assert_eq!(read_head.next().unwrap(), 2);
+            assert_eq!(read_head.next().unwrap(), 3);
+        }
+
+        {
+            let mut read_head = write_head.as_readhead(1);
+
+            assert_eq!(read_head.next().unwrap(), 3);
+            assert_eq!(read_head.next().unwrap(), 1);
+            assert_eq!(read_head.next().unwrap(), 2);
+        }
+        {
+            let mut read_head = write_head.as_readhead(2);
+
+            assert_eq!(read_head.next().unwrap(), 2);
+            assert_eq!(read_head.next().unwrap(), 3);
+            assert_eq!(read_head.next().unwrap(), 1);
         }
     }
 
@@ -249,11 +264,12 @@ mod tests {
         let mut write_head = WriteHead::<f32, 2>::new();
         
         write_head.push(1.0);
+        write_head.push(3.0);
 
         let mut read_head = write_head.as_readhead(0);
         
         assert_eq!(read_head.next().unwrap(), 1.0);
-        assert_eq!(read_head.next().unwrap(), 0.0);
+        assert_eq!(read_head.next().unwrap(), 3.0);
         assert_eq!(read_head.next().unwrap(), 1.0);
     }
 
