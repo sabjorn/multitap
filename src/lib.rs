@@ -26,8 +26,12 @@ pub struct ReadHead<T: Num> {
 unsafe impl<T: Num> Send for ReadHead<T> {}
 
 impl<T: Num> ReadHead<T> {
-    pub fn seek(&mut self, position: usize){
+    pub fn seek(&mut self, position: usize) {
         self.head_position = position % self.size;
+    }
+
+    pub fn delta(&mut self, position_delta: i64) {
+        self.head_position = ((self.head_position as i64 + position_delta) % self.size as i64) as usize;
     }
 }
 
@@ -301,7 +305,78 @@ mod tests {
         assert_eq!(read_head[3], 1.0);
         assert_eq!(read_head[4], 0.0);
     }
-    
+
+    #[test]
+    pub fn read_head_seek() {
+        let mut write_head = WriteHead::<f32, 2>::new();
+
+        write_head.push(0.0);
+        write_head.push(1.0);
+
+        let mut read_head = write_head.as_readhead(0);
+        assert_eq!(read_head.next().unwrap(), 0.0);
+
+        read_head.seek(0);
+        assert_eq!(read_head.next().unwrap(), 0.0);
+    }
+
+    #[test]
+    pub fn read_head_seek_is_circuluar() {
+        let mut write_head = WriteHead::<f32, 2>::new();
+
+        write_head.push(0.0);
+        write_head.push(1.0);
+
+        let mut read_head = write_head.as_readhead(0);
+        assert_eq!(read_head.next().unwrap(), 0.0);
+
+        read_head.seek(2);
+
+        assert_eq!(read_head.next().unwrap(), 0.0);
+    }
+
+    #[test]
+    pub fn read_head_delta() {
+        let mut write_head = WriteHead::<f32, 3>::new();
+
+        write_head.push(1.0);
+        write_head.push(2.0);
+        write_head.push(3.0);
+
+        let mut read_head = write_head.as_readhead(0);
+        read_head.delta(2);
+
+        assert_eq!(read_head.next().unwrap(), 3.0);
+    }
+
+    #[test]
+    pub fn read_head_delta_no_change_if_zero() {
+        let mut write_head = WriteHead::<f32, 3>::new();
+
+        write_head.push(1.0);
+        write_head.push(2.0);
+        write_head.push(3.0);
+
+        let mut read_head = write_head.as_readhead(0);
+        read_head.delta(0);
+
+        assert_eq!(read_head.next().unwrap(), 1.0);
+    }
+
+    #[test]
+    pub fn read_head_delta_is_circuluar() {
+        let mut write_head = WriteHead::<f32, 3>::new();
+
+        write_head.push(1.0);
+        write_head.push(2.0);
+        write_head.push(3.0);
+
+        let mut read_head = write_head.as_readhead(0);
+        read_head.delta(3);
+
+        assert_eq!(read_head.next().unwrap(), 1.0);
+    }
+
     #[test]
     pub fn write_head_is_circular() {
         let mut write_head = WriteHead::<f32, 2>::new();
