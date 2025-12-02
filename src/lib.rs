@@ -63,19 +63,20 @@
 //! ```rust,ignore
 //! use multitap::{RingBuffer, SliceBackend};
 //!
-//! // Map SDRAM to a slice (platform-specific, unsafe)
-//! let sdram_slice = unsafe {
-//!     core::slice::from_raw_parts_mut(SDRAM_BASE as *mut f32, SDRAM_SIZE)
+//! // SDRAM at 0xC0000000, 64MB = 16M floats
+//! // The address and capacity are compile-time constants
+//! let mut buffer = unsafe {
+//!     RingBuffer::new(SliceBackend::<f32, 0xC0000000, 16_777_216>::new())
 //! };
 //!
-//! let mut buffer = RingBuffer::new(SliceBackend::new(sdram_slice));
 //! // Use exactly like array-backed buffer
+//! // The backend is zero-sized and recreates pointers on each access
 //! ```
 
 // Re-export main types
 pub use backend::BufferBackend;
 pub use array_backend::ArrayBackend;
-pub use slice_backend::SliceBackend;
+pub use slice_backend::{SliceBackend, SliceBackendRuntime};
 pub use ring_buffer::RingBuffer;
 pub use guards::{WriteGuard, ReadGuard};
 pub use handles::{ReadHandle, ReadIterator};
@@ -105,9 +106,8 @@ impl Num for i32 {
     }
 }
 
-// Convenience type aliases
+// Convenience type alias
 pub type RingBufferArray<T, const N: usize> = RingBuffer<T, ArrayBackend<T, N>>;
-pub type RingBufferOwned<T> = RingBuffer<T, SliceBackend<T>>;
 
 #[cfg(test)]
 mod tests {
@@ -123,13 +123,18 @@ mod tests {
     }
 
     #[test]
-    fn test_type_alias_owned() {
+    fn test_slice_backend_runtime() {
         let mut external_memory = [0.0f32; 4];
-        let mut buffer = RingBufferOwned::new(SliceBackend::new(&mut external_memory));
 
-        buffer.write().push(42.0);
+        unsafe {
+            let mut buffer = RingBuffer::new(
+                SliceBackendRuntime::from_slice(&mut external_memory)
+            );
 
-        let mut handle = buffer.get_read_handle(Some(0));
-        assert_eq!(handle.read(&buffer).next(), 42.0);
+            buffer.write().push(42.0);
+
+            let mut handle = buffer.get_read_handle(Some(0));
+            assert_eq!(handle.read(&buffer).next(), 42.0);
+        }
     }
 }

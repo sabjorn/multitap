@@ -6,6 +6,9 @@
 use core::marker::PhantomData;
 use crate::{Num, BufferBackend, ReadHandle, WriteGuard};
 
+#[cfg(test)]
+use crate::SliceBackendRuntime;
+
 /// Core ring buffer that works with any storage backend
 ///
 /// The ring buffer maintains a write position and delegates actual
@@ -63,7 +66,7 @@ unsafe impl<T: Num, B: BufferBackend<T>> Send for RingBuffer<T, B> {}
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{ArrayBackend, SliceBackend};
+    use crate::ArrayBackend;
 
     #[test]
     fn test_new() {
@@ -94,21 +97,26 @@ mod tests {
     #[test]
     fn test_basic_write_read_slice() {
         let mut external_memory = [0.0f32; 4];
-        let mut buffer = RingBuffer::new(SliceBackend::new(&mut external_memory));
 
-        {
-            let mut writer = buffer.write();
-            writer.push(1.0);
-            writer.push(2.0);
-            writer.push(3.0);
+        unsafe {
+            let mut buffer = RingBuffer::new(
+                SliceBackendRuntime::from_slice(&mut external_memory)
+            );
+
+            {
+                let mut writer = buffer.write();
+                writer.push(1.0);
+                writer.push(2.0);
+                writer.push(3.0);
+            }
+
+            let mut read_handle = buffer.get_read_handle(Some(0));
+            let mut reader = read_handle.read(&buffer);
+
+            assert_eq!(reader.next(), 1.0);
+            assert_eq!(reader.next(), 2.0);
+            assert_eq!(reader.next(), 3.0);
         }
-
-        let mut read_handle = buffer.get_read_handle(Some(0));
-        let mut reader = read_handle.read(&buffer);
-
-        assert_eq!(reader.next(), 1.0);
-        assert_eq!(reader.next(), 2.0);
-        assert_eq!(reader.next(), 3.0);
     }
 
     #[test]
